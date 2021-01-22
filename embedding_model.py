@@ -5,7 +5,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn, optim, Tensor
 
-from config import sequence_length
+from config import config
 
 
 class EmbeddingModel(nn.Module):
@@ -16,7 +16,7 @@ class EmbeddingModel(nn.Module):
 
         self.fc1 = nn.Linear(obs_size, 32)
         self.fc2 = nn.Linear(32, 32)
-        self.last = nn.Linear(32*2, num_outputs)
+        self.last = nn.Linear(32 * 2, num_outputs)
 
         self.optimizer = optim.Adam(self.parameters(), lr=1e-5)
 
@@ -35,9 +35,9 @@ class EmbeddingModel(nn.Module):
     def train_model(self, batch):
         batch_size = torch.stack(batch.state).size()[0]
         # last 5 in sequence
-        states = torch.stack(batch.state).view(batch_size, sequence_length, self.obs_size)[:, -5:, :]
-        next_states = torch.stack(batch.next_state).view(batch_size, sequence_length, self.obs_size)[:, -5:, :]
-        actions = torch.stack(batch.action).view(batch_size, sequence_length, -1).long()[:, -5:, :]
+        states = torch.stack(batch.state).view(batch_size, config.sequence_length, self.obs_size)[:, -5:, :]
+        next_states = torch.stack(batch.next_state).view(batch_size, config.sequence_length, self.obs_size)[:, -5:, :]
+        actions = torch.stack(batch.action).view(batch_size, config.sequence_length, -1).long()[:, -5:, :]
 
         self.optimizer.zero_grad()
         net_out = self.forward(states, next_states)
@@ -48,8 +48,15 @@ class EmbeddingModel(nn.Module):
         return loss.item()
 
 
-def compute_intrinsic_reward(episodic_memory: List, current_c_state: Tensor, k=10, kernel_cluster_distance=0.008,
-                             kernel_epsilon=0.0001, c=0.001, sm=8) -> float:
+def compute_intrinsic_reward(
+    episodic_memory: List,
+    current_c_state: Tensor,
+    k=10,
+    kernel_cluster_distance=0.008,
+    kernel_epsilon=0.0001,
+    c=0.001,
+    sm=8,
+) -> float:
     state_dist = [(c_state, torch.dist(c_state, current_c_state)) for c_state in episodic_memory]
     state_dist.sort(key=lambda x: x[1])
     state_dist = state_dist[:k]
